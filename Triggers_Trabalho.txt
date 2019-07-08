@@ -1,0 +1,155 @@
+1) Em Finais de Semana não pode votar:
+
+CREATE TRIGGER `trg_tempo_voto`
+BEFORE INSERT ON `tb_pesquisa`
+FOR EACH ROW
+BEGIN
+DECLARE msg VARCHAR(255);
+	IF (DAYOFWEEK(NOW()) = '7' OR DAYOFWEEK(NOW()) = '1') THEN
+		SET msg = 'Desculpe, voce nao pode votar em finais de semana.';
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = msg;
+    ELSE
+		SET new.estado = 'A';
+END IF;
+END
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+2) Os 100 primeiros clientes que votarem, não pagaram:
+
+CREATE TRIGGER `trg_gratis`
+AFTER INSERT ON `tb_pesquisa`
+FOR EACH ROW
+BEGIN
+	IF ( new.cod_pesquisa < 100) THEN
+    		SET new.estado = 'G';
+    	ELSE
+    		SET new.estado = 'A';
+    	END IF;
+END
+
+-------------------------------------- FUNCTION +-
+
+BEGIN
+	IF (new.cod_pesquisa < 101) THEN
+    	UPDATE `tb_pesquisa` SET gratis = 'S' WHERE cod_pesquisa = `new.cod_pesquisa`;
+    ELSE
+    	UPDATE `tb_pesquisa` SET gratis = 'N' WHERE cod_pesquisa = `new.cod_pesquisa`;
+     END IF;
+END
+
+-----------------------------------------------------
+
+
+BEGIN	
+	FOR qtd_pesquisa IN (SELECT COUNT(*) FROM tb_pesquisa)
+	IF (qtd_pesquisa.quantidade < 101) THEN
+    		SET new.estado = 'G';
+    	ELSE
+    		SET new.estado = 'A';
+    	END IF;
+END
+
+------------------------------------------------ 
+
+BEGIN
+DECLARE existe_mais_linhas INT DEFAULT 0;
+DECLARE contagem INT DEFAULT 0;
+DECLARE contar CURSOR FOR 
+	SELECT COUNT(*) FROM tb_pesquisa;
+DECLARE CONTINUE HANDLER FOR NOT FOUND SET existe_mais_linhas=1;
+	OPEN contar;
+    
+     contarLoop: LOOP
+  FETCH contar INTO contagem;
+  IF existe_mais_linhas = 1 THEN
+  LEAVE contarLoop;
+  END IF;
+END;
+
+-------------------------------
+
+BEGIN
+DECLARE qtd_linhas INT DEFAULT 0;
+DECLARE cursor_contar CURSOR FOR SELECT COUNT(*) FROM `tb_pesquisa`;
+	OPEN cursor_contar;
+    FETCH cursor_contar INTO qtd_linhas;
+    IF qtd_linhas < 101 THEN
+  		SET new.estado = 'G';
+	ELSE
+ 		SET new.estado = 'N';
+	END IF;
+    CLOSE cursor_contar;
+END;
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+3) Dentro da senha, não pode existir a palavra "senha":
+
+CREATE TRIGGER `trg_senha`
+BEFORE INSERT ON `tb_cliente`
+FOR EACH ROW
+BEGIN
+DECLARE msg VARCHAR(255);
+	IF (UPPER(new.senha) LIKE '%SENHA%') THEN
+		set msg = 'Escolha uma senha ao menos um pouco decente, por favor!!!  -_-';
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = msg;
+	END IF;
+END;
+
+---------------------
+
+CREATE TRIGGER `trg_senha_update`
+BEFORE UPDATE ON `tb_cliente`
+FOR EACH ROW
+BEGIN
+DECLARE msg VARCHAR(255);
+	IF (UPPER(new.senha) LIKE '%SENHA%') THEN
+		set msg = 'Escolha uma senha ao menos um pouco decente, por favor!!!  -_-';
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = msg;
+	END IF;
+END;
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+4) Mandar para a Tabela LOG alterações:
+
+CREATE TRIGGER `trg_log_cliente`
+AFTER UPDATE ON `tb_cliente`
+FOR EACH ROW
+BEGIN
+	INSERT INTO tb_cliente_log(`cod_cliente`, `nome`, `sobrenome`, `senha`, `cpf`, `rg`, `nascimento`, `sexo`, `telefone`, `email`, `status`, `data_modificacao`, `acao`, `user`)
+	VALUES(old.cod_cliente, old.nome, old.sobrenome, old.senha, old.cpf, old.rg, old.nascimento, old.sexo, old.telefone, old.email, old.status, NOW(), 'ALTERADO', USER());
+END;
+
+-------------------
+
+CREATE TRIGGER `trg_log_cliente`
+AFTER DELETE ON `tb_cliente`
+FOR EACH ROW
+BEGIN
+	INSERT INTO tb_cliente_log(`cod_cliente`, `nome`, `sobrenome`, `senha`, `cpf`, `rg`, `nascimento`, `sexo`, `telefone`, `email`, `status`, `data_modificacao`, `acao`, `user`)
+	VALUES(old.cod_cliente, old.nome, old.sobrenome, old.senha, old.cpf, old.rg, old.nascimento, old.sexo, old.telefone, old.email, old.status, NOW(), 'DELETADO', USER());
+END;
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+5) Quando fazer uma reserva, modificar status do quarto
+
+BEGIN
+	UPDATE tb_quarto SET `status` = 'R' 
+    WHERE tb_quarto.cod_quarto = new.cod_quarto;
+END
+
+------------------ Para quando excluir:
+
+BEGIN
+	UPDATE tb_quarto SET `status` = 'A' 
+    WHERE tb_quarto.cod_quarto = old.cod_quarto;
+END
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+6)
+
